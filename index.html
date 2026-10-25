@@ -97,6 +97,7 @@
 <body class="antialiased text-slate-800 bg-layer min-h-screen relative">
 
     <!-- AUDIO FILES -->
+    <audio id="audio-start" src="1.mp3" preload="auto"></audio>
     <audio id="audio-10s" src="10.mp3" preload="auto"></audio>
     <audio id="audio-end" src="end.mp3" preload="auto"></audio>
 
@@ -107,6 +108,14 @@
         <svg class="bg-shape absolute w-24 h-24 text-cyan-200/40" style="bottom: 15%; left: 20%;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
         <div class="bg-shape absolute w-6 h-6 bg-purple-300/40 rounded-full" style="top: 70%; right: 30%;"></div>
         <div class="bg-shape absolute w-4 h-4 bg-sky-400/50 rounded-full" style="top: 25%; right: 40%;"></div>
+    </div>
+
+    <!-- ================= START NOTIFICATION OVERLAY (Mendesain Ulang Mirip Waktu Habis) ================= -->
+    <div id="start-layer" class="hidden fixed inset-0 z-[130] pointer-events-none flex-col justify-center items-center">
+        <div id="start-particle-burst" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
+        <h1 id="start-text" class="text-6xl md:text-8xl font-extrabold font-display text-sky-500 uppercase transform rotate-2 drop-shadow-[0_15px_35px_rgba(14,165,233,0.5)] text-center leading-none">
+            <!-- Teks masuk di JS -->
+        </h1>
     </div>
 
     <!-- ================= RED PULSE OVERLAY (10s Urgency) ================= -->
@@ -223,7 +232,6 @@
 
     <!-- ================= 3. TIMEOUT OVERLAY ================= -->
     <div id="timeout-layer" class="hidden fixed inset-0 z-[110] pointer-events-none flex-col justify-center items-center">
-        <!-- Text and burst animation ONLY, transparent bg so you can still see the page dim under it theoretically if wanted, but Bang Motion requested jumping text -->
         <div id="particle-burst" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
         <h1 id="timeout-text" class="text-7xl md:text-9xl font-extrabold font-display text-pink-500 uppercase transform -rotate-3 drop-shadow-[0_15px_35px_rgba(236,72,153,0.5)] text-center leading-none">
             WAKTU<br>HABIS!
@@ -434,8 +442,63 @@
                     gsap.to(instr, { opacity: 0, scale: 0.8, duration: 0.4, onComplete: () => instr.style.display = "none" });
                 }
 
+                playStartNotification();
                 startCountdown();
             }
+        }
+        
+        function playStartNotification() {
+            // Play Audio
+            const audioStart = document.getElementById('audio-start');
+            if(audioStart) {
+                audioStart.currentTime = 0;
+                audioStart.play().catch(()=>{});
+            }
+
+            // Get mode & Text
+            const mode = document.querySelector('input[name="mode"]:checked').value;
+            const msg = mode === 'exercise' ? "EXERCISE CODE<br>DIMULAI!" : "DEMO<br>DIMULAI!";
+
+            const startLayer = document.getElementById('start-layer');
+            const startText = document.getElementById('start-text');
+            const burstContainer = document.getElementById('start-particle-burst');
+            
+            startText.innerHTML = msg;
+            startLayer.classList.remove('hidden');
+            startLayer.classList.add('flex');
+
+            // Generate Burst Particles (Sky Blue Theme)
+            burstContainer.innerHTML = '';
+            const colors = ['#0EA5E9', '#38BDF8', '#818CF8', '#A78BFA']; 
+            for(let i=0; i<25; i++) {
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                burstContainer.innerHTML += `
+                    <svg class="start-particle absolute left-1/2 top-1/2 w-8 h-8" style="color: ${color};" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                    </svg>`;
+            }
+
+            // GSAP Cinematic Sequence
+            const tl = gsap.timeline({
+                onComplete: () => {
+                    startLayer.classList.add('hidden');
+                    startLayer.classList.remove('flex');
+                }
+            });
+
+            // Sec 0-1: Text leaps in, particles explode
+            tl.fromTo("#start-text", 
+                { scale: 0.3, y: 300, rotation: 15, opacity: 0 },
+                { scale: 1, y: 0, rotation: -2, opacity: 1, duration: 1, ease: "back.out(1.7)" }
+            )
+            .fromTo(".start-particle",
+                { x: 0, y: 0, scale: 0, opacity: 1 },
+                { x: () => (Math.random() - 0.5) * 1000, y: () => (Math.random() - 0.5) * 1000, scale: () => 1 + Math.random() * 2, rotation: () => Math.random() * 360, opacity: 0, duration: 1.5, ease: "power3.out" }, "<"
+            )
+            // Sec 1-2.5: Hold and pulse text
+            .to("#start-text", { scale: 1.05, duration: 0.8, ease: "sine.inOut", yoyo: true, repeat: 1 })
+            // Sec 2.5-3.5: Fly out up
+            .to("#start-text", { y: -1000, scale: 0.5, rotation: 10, duration: 1, ease: "back.in(1.5)" });
         }
 
         function startCountdown() {
@@ -476,7 +539,7 @@
         function trigger10sUrgency() {
             isUrgent = true;
             
-            // Audio 10.mp4
+            // Audio 10.mp4 (or 10.mp3)
             const audio10 = document.getElementById('audio-10s');
             if (audio10) { audio10.currentTime = 0; audio10.play().catch(()=>{}); }
 
@@ -585,10 +648,16 @@
             const resetBtn = document.getElementById('reset-container');
             const presLayer = document.getElementById('presentation-layer');
             const instr = document.getElementById('instruction-text');
+            const startLayer = document.getElementById('start-layer'); // Reset start overlay
             
             resetBtn.classList.add('hidden');
             presLayer.classList.add('hidden');
             presLayer.classList.remove('flex');
+            
+            if(startLayer) {
+                startLayer.classList.add('hidden');
+                startLayer.classList.remove('flex');
+            }
             
             // Ensure headers & content are fully visible for next time
             document.getElementById('pres-content').style.opacity = '1';
