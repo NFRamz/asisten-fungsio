@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Presentasi Interaktif - Light Mode</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- GSAP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: #F8FAFC;
+            overflow-x: hidden;
+        }
+        .font-display {
+            font-family: 'Fredoka', sans-serif;
+        }
+
+        /* Continuous Floating Background Layer */
+        .bg-layer {
+            background-image: 
+                radial-gradient(circle at 20% 30%, rgba(14, 165, 233, 0.1) 0%, transparent 40%),
+                radial-gradient(circle at 80% 70%, rgba(236, 72, 153, 0.1) 0%, transparent 40%);
+        }
+
+        /* Spiral Notebook CSS */
+        .spiral-notebook {
+            background-color: #ffffff;
+            border: 3px solid #E2E8F0;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px -10px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        .spiral-holes-container {
+            position: absolute;
+            top: -24px;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: space-evenly;
+            padding: 0 30px;
+        }
+        .spiral-unit {
+            position: relative;
+            width: 20px;
+            height: 48px;
+        }
+        .spiral-hole {
+            position: absolute;
+            bottom: 4px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 16px;
+            height: 16px;
+            background-color: #F8FAFC;
+            border: 2px solid #CBD5E1;
+            border-radius: 50%;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .spiral-ring {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 8px;
+            height: 36px;
+            background: linear-gradient(to bottom, #F1F5F9, #94A3B8);
+            border: 1px solid #64748B;
+            border-radius: 10px;
+            box-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+
+        /* Timer Smooth Centering Transition */
+        .timer-transition {
+            transition: all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); 
+        }
+
+        /* Form Inputs */
+        .setup-input {
+            border: 2px solid #E2E8F0;
+            transition: all 0.2s;
+        }
+        .setup-input:focus {
+            outline: none;
+            border-color: #38BDF8;
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+        }
+    </style>
+</head>
+<body class="antialiased text-slate-800 bg-layer min-h-screen relative">
+
+    <!-- AUDIO FILES -->
+    <audio id="audio-10s" src="10.mp4" preload="auto"></audio>
+    <audio id="audio-end" src="end.mp3" preload="auto"></audio>
+
+    <!-- ================= 0. BACKGROUND SVG FLOATERS (Bang Motion) ================= -->
+    <div id="bg-floaters" class="fixed inset-0 w-full h-full pointer-events-none z-0">
+        <svg class="bg-shape absolute w-16 h-16 text-sky-300/40" style="top: 15%; left: 10%;" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg>
+        <svg class="bg-shape absolute w-10 h-10 text-pink-300/50" style="top: 40%; right: 15%;" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+        <svg class="bg-shape absolute w-24 h-24 text-cyan-200/40" style="bottom: 15%; left: 20%;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+        <div class="bg-shape absolute w-6 h-6 bg-purple-300/40 rounded-full" style="top: 70%; right: 30%;"></div>
+        <div class="bg-shape absolute w-4 h-4 bg-sky-400/50 rounded-full" style="top: 25%; right: 40%;"></div>
+    </div>
+
+    <!-- ================= RED PULSE OVERLAY (10s Urgency) ================= -->
+    <div id="red-pulse-overlay" class="fixed inset-0 bg-red-500/30 z-40 hidden pointer-events-none"></div>
+
+    <!-- ================= EXPLICIT TIMER ELEMENT ================= -->
+    <!-- Default state: Top Right Rounded Pill -->
+    <div id="timer-display" class="hidden fixed z-[100] top-6 right-6 bg-white px-6 py-2 rounded-full shadow-lg border-2 border-slate-100 text-4xl text-slate-800 font-bold font-sans timer-transition pointer-events-none">
+        00:00
+    </div>
+
+
+    <!-- ================= 1. SETUP LAYER ================= -->
+    <div id="setup-layer" class="relative z-50 w-full min-h-screen flex flex-col items-center py-12 px-6">
+        <div class="w-full max-w-4xl bg-white/80 backdrop-blur-xl p-8 md:p-10 rounded-3xl shadow-2xl border border-white">
+            <div class="text-center mb-10 setup-stagger">
+                <h1 class="text-4xl md:text-5xl font-extrabold text-slate-800 font-display mb-2">Setup Presentasi</h1>
+                <p class="text-slate-500 font-medium text-lg">Light Mode - Bang Motion Ceria</p>
+            </div>
+
+            <!-- Mode Selection -->
+            <div class="flex justify-center gap-4 mb-8 setup-stagger">
+                <label class="cursor-pointer">
+                    <input type="radio" name="mode" value="exercise" class="peer sr-only" onchange="toggleMode()" checked>
+                    <div class="px-6 py-3 rounded-xl border-2 border-slate-200 font-bold text-lg text-slate-500 peer-checked:bg-sky-500 peer-checked:text-white peer-checked:border-sky-500 transition-all shadow-sm">
+                        📝 Exercise
+                    </div>
+                </label>
+                <label class="cursor-pointer">
+                    <input type="radio" name="mode" value="demo" class="peer sr-only" onchange="toggleMode()">
+                    <div class="px-6 py-3 rounded-xl border-2 border-slate-200 font-bold text-lg text-slate-500 peer-checked:bg-pink-500 peer-checked:text-white peer-checked:border-pink-500 transition-all shadow-sm">
+                        🎬 Demo
+                    </div>
+                </label>
+            </div>
+
+            <!-- Global Settings -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 pb-8 border-b-2 border-slate-100 setup-stagger">
+                <div>
+                    <label class="block font-bold text-slate-700 mb-2">Judul Utama</label>
+                    <input type="text" id="in-maintitle" value="EXERCISE IMPLEMENTATION" class="setup-input w-full px-4 py-3 rounded-xl font-bold font-display uppercase">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-2">Subjudul</label>
+                    <input type="text" id="in-subtitle" value="Codelab Fungsional" class="setup-input w-full px-4 py-3 rounded-xl font-bold font-display">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-2">Waktu (Menit)</label>
+                    <input type="number" id="in-min" value="10" min="0" class="setup-input w-full px-4 py-3 rounded-xl font-bold text-xl">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-2">Waktu (Detik)</label>
+                    <input type="number" id="in-sec" value="0" min="0" max="59" class="setup-input w-full px-4 py-3 rounded-xl font-bold text-xl">
+                </div>
+            </div>
+
+            <!-- Demo Fields -->
+            <div id="demo-fields" class="hidden space-y-6 setup-stagger">
+                <div>
+                    <label class="block font-bold text-slate-700 mb-2">Teks Instruksi / Pesan</label>
+                    <input type="text" id="demo-msg" value="Silahkan didownload, buka melalui VsCode dan matikan Wi-Fi." class="setup-input w-full px-4 py-3 rounded-xl font-medium">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-2">Link Tujuan</label>
+                    <input type="text" id="demo-link" value="bit.ly/fungsio-d6" class="setup-input w-full px-4 py-3 rounded-xl font-bold text-sky-600 font-mono">
+                </div>
+            </div>
+
+            <!-- Exercise Fields -->
+            <div id="exercise-fields" class="space-y-6 setup-stagger">
+                <div class="flex items-end gap-4">
+                    <div class="flex-1">
+                        <label class="block font-bold text-slate-700 mb-2">Jumlah Soal</label>
+                        <input type="number" id="in-count" value="6" min="1" max="12" class="setup-input w-full px-4 py-3 rounded-xl font-bold text-xl">
+                    </div>
+                    <button onclick="generateQuestions()" class="bg-slate-800 text-white px-6 py-3 rounded-xl font-bold hover:bg-slate-700 transition">Buat Form Soal</button>
+                </div>
+                <div id="q-container" class="space-y-4"></div>
+            </div>
+
+            <!-- Start Button -->
+            <div class="mt-12 text-center setup-stagger">
+                <button onclick="startPresentation()" class="bg-gradient-to-r from-sky-400 to-cyan-400 text-white px-12 py-4 rounded-full font-extrabold text-2xl font-display shadow-xl hover:shadow-cyan-400/40 hover:-translate-y-1 transition-all duration-300">
+                    Mulai Presentasi
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ================= 2. PRESENTATION LAYER ================= -->
+    <div id="presentation-layer" class="hidden relative z-20 w-full min-h-screen flex-col items-center justify-start pt-8 pb-32 px-6 cursor-pointer" onclick="handleScreenClick(event)">
+        
+        <!-- Instruction Text -->
+        <div id="instruction-text" class="fixed inset-0 m-auto flex items-center justify-center z-60 pointer-events-none">
+            <div class="bg-slate-800/90 text-white px-8 py-4 rounded-full font-bold text-2xl shadow-2xl animate-pulse text-center">
+                Klik dimana saja untuk memulai timer 🖱️
+            </div>
+        </div>
+
+        <!-- Logos (Top Left Placeholder) -->
+        <div class="absolute top-6 left-6 flex gap-4 z-50 pointer-events-auto pres-element">
+            <img src="logo1.jpg" onerror="this.src='https://placehold.co/120x120/0EA5E9/FFF?text=Logo+1'" alt="Logo 1" class="h-16 w-16 object-cover rounded-2xl shadow-md border-2 border-white bg-white">
+            <img src="logo2.jpg" onerror="this.src='https://placehold.co/120x120/EC4899/FFF?text=Logo+2'" alt="Logo 2" class="h-16 w-16 object-cover rounded-2xl shadow-md border-2 border-white bg-white">
+        </div>
+
+        <!-- Header Content -->
+        <div id="pres-header-area" class="text-center mt-24 md:mt-12 mb-12 w-full max-w-5xl pres-element pointer-events-none transition-opacity duration-500">
+            <h1 id="pres-maintitle" class="text-5xl md:text-6xl font-extrabold text-slate-800 font-display mb-2 uppercase tracking-tight">TITLE</h1>
+            <h2 id="pres-subtitle" class="text-2xl md:text-3xl font-bold text-sky-600 font-display">Subtitle</h2>
+        </div>
+
+        <!-- Dynamic Content Container -->
+        <div id="pres-content" class="w-full max-w-7xl relative z-30 transition-opacity duration-500">
+            <!-- Filled dynamically -->
+        </div>
+    </div>
+
+
+    <!-- ================= 3. TIMEOUT OVERLAY ================= -->
+    <div id="timeout-layer" class="hidden fixed inset-0 z-[110] pointer-events-none flex-col justify-center items-center">
+        <!-- Text and burst animation ONLY, transparent bg so you can still see the page dim under it theoretically if wanted, but Bang Motion requested jumping text -->
+        <div id="particle-burst" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
+        <h1 id="timeout-text" class="text-7xl md:text-9xl font-extrabold font-display text-pink-500 uppercase transform -rotate-3 drop-shadow-[0_15px_35px_rgba(236,72,153,0.5)] text-center leading-none">
+            WAKTU<br>HABIS!
+        </h1>
+    </div>
+
+
+    <!-- ================= 4. RESET BUTTON OVERLAY ================= -->
+    <div id="reset-container" class="hidden fixed bottom-10 left-1/2 -translate-x-1/2 z-[120]">
+        <button onclick="resetApp()" class="bg-slate-800 hover:bg-pink-500 text-white px-10 py-4 rounded-full font-bold text-xl shadow-2xl flex items-center gap-2 transition-colors duration-300">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            Reset Presentasi
+        </button>
+    </div>
+
+
+    <!-- ================= SCRIPTS ================= -->
+    <script>
+        let timerInterval;
+        let totalSeconds = 0;
+        
+        // State Machine
+        let isPresActive = false;
+        let hasTimerStarted = false;
+        let isUrgent = false;
+        
+        // Storage for GSAP Tweens so they can be killed
+        let contentFloaters = []; 
+
+        // CSS Classes for Timer States
+        const timerNormalClasses = ['top-6', 'right-6', 'bg-white', 'px-6', 'py-2', 'rounded-full', 'shadow-lg', 'border-2', 'border-slate-100', 'text-4xl', 'text-slate-800'];
+        const timerUrgentClasses = ['top-1/2', 'left-1/2', '-translate-x-1/2', '-translate-y-1/2', 'text-[8rem]', 'md:text-[12rem]', 'text-red-600', 'drop-shadow-2xl'];
+
+        window.onload = () => {
+            initBangMotionFloaters();
+            generateQuestions();
+
+            // Initial Setup animation
+            gsap.from(".setup-stagger", {
+                y: 30, opacity: 0, duration: 0.6, stagger: 0.1, ease: "back.out(1.2)"
+            });
+        };
+
+        // Bang Motion Style Continuous SVG Float
+        function initBangMotionFloaters() {
+            gsap.utils.toArray('.bg-shape').forEach((shape, i) => {
+                gsap.to(shape, {
+                    y: `+=${20 + Math.random() * 20}`,
+                    x: `+=${-15 + Math.random() * 30}`,
+                    rotation: i % 2 === 0 ? 15 : -15,
+                    scale: 1.1 + Math.random() * 0.2,
+                    duration: 3 + Math.random() * 2,
+                    ease: "sine.inOut",
+                    yoyo: true,
+                    repeat: -1
+                });
+            });
+        }
+
+        function toggleMode() {
+            const mode = document.querySelector('input[name="mode"]:checked').value;
+            if(mode === 'demo') {
+                document.getElementById('demo-fields').classList.remove('hidden');
+                document.getElementById('exercise-fields').classList.add('hidden');
+            } else {
+                document.getElementById('demo-fields').classList.add('hidden');
+                document.getElementById('exercise-fields').classList.remove('hidden');
+            }
+        }
+
+        function generateQuestions() {
+            const count = parseInt(document.getElementById('in-count').value) || 0;
+            const container = document.getElementById('q-container');
+            container.innerHTML = '';
+            
+            for(let i = 1; i <= count; i++) {
+                container.innerHTML += `
+                    <div class="bg-slate-50 p-5 rounded-2xl border border-slate-200">
+                        <div class="flex items-center gap-3 mb-3">
+                            <div class="bg-sky-500 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold">${i}</div>
+                            <input type="text" id="q-title-${i}" value="EXERCISE ${i}" class="setup-input flex-1 px-4 py-2 rounded-lg font-bold uppercase text-sm">
+                        </div>
+                        <textarea id="q-desc-${i}" rows="2" placeholder="Masukkan soal..." class="setup-input w-full px-4 py-2 rounded-lg text-slate-600 text-sm resize-none">Jelaskan cara kerja fungsi ini.</textarea>
+                    </div>
+                `;
+            }
+        }
+
+        // ============================================
+        // START PRESENTATION
+        // ============================================
+        function startPresentation() {
+            // Set Text
+            document.getElementById('pres-maintitle').innerText = document.getElementById('in-maintitle').value;
+            document.getElementById('pres-subtitle').innerText = document.getElementById('in-subtitle').value;
+
+            // Set Time
+            const m = parseInt(document.getElementById('in-min').value) || 0;
+            const s = parseInt(document.getElementById('in-sec').value) || 0;
+            totalSeconds = m * 60 + s;
+            updateTimerText();
+
+            // Setup Timer classes (Reset to Normal)
+            const tEl = document.getElementById('timer-display');
+            tEl.classList.remove(...timerUrgentClasses);
+            tEl.classList.add(...timerNormalClasses);
+
+            // Build Presentation Content
+            const mode = document.querySelector('input[name="mode"]:checked').value;
+            const contentArea = document.getElementById('pres-content');
+            contentArea.innerHTML = '';
+
+            if (mode === 'exercise') {
+                const count = parseInt(document.getElementById('in-count').value);
+                let html = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">`;
+                for(let i = 1; i <= count; i++) {
+                    const title = document.getElementById(`q-title-${i}`).value;
+                    const desc = document.getElementById(`q-desc-${i}`).value.replace(/\n/g, '<br>');
+                    html += `
+                        <div class="bg-white p-8 rounded-3xl shadow-xl shadow-sky-100/50 border-2 border-slate-100 flex flex-col content-card">
+                            <div class="flex items-center gap-4 mb-4">
+                                <div class="w-12 h-12 rounded-full bg-sky-500 text-white font-bold text-xl flex items-center justify-center shrink-0 font-display">${i}</div>
+                                <h3 class="font-bold text-xl text-slate-800 uppercase font-display leading-tight">${title}</h3>
+                            </div>
+                            <p class="text-slate-600 font-medium text-lg leading-snug">${desc}</p>
+                        </div>
+                    `;
+                }
+                html += `</div>`;
+                contentArea.innerHTML = html;
+            } else {
+                // Mode Demo (CSS Spiral Notebook)
+                const link = document.getElementById('demo-link').value;
+                const msg = document.getElementById('demo-msg').value;
+                let spirals = '';
+                for(let i=0; i<7; i++) {
+                    spirals += `<div class="spiral-unit"><div class="spiral-hole"></div><div class="spiral-ring"></div></div>`;
+                }
+                contentArea.innerHTML = `
+                    <div class="spiral-notebook w-full max-w-3xl mx-auto p-12 pt-20 pb-16 text-center content-card cursor-auto">
+                        <div class="spiral-holes-container">${spirals}</div>
+                        <h3 class="text-2xl font-bold text-slate-500 mb-6 font-display">Link Demo:</h3>
+                        <a href="https://${link.replace('https://','')}" target="_blank" onclick="event.stopPropagation();" class="inline-block text-4xl md:text-5xl lg:text-6xl font-black text-sky-600 hover:text-pink-500 transition-colors tracking-tight font-mono mb-8 underline decoration-wavy decoration-sky-300 relative z-50">
+                            ${link}
+                        </a>
+                        <div class="bg-slate-100 text-slate-700 px-6 py-3 rounded-full font-bold text-lg inline-block border border-slate-200 shadow-sm">
+                            ${msg}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Transition Layer
+            gsap.to("#setup-layer", {
+                opacity: 0, duration: 0.4, onComplete: () => {
+                    document.getElementById('setup-layer').classList.add('hidden');
+                    
+                    // Show Pres View
+                    const presLayer = document.getElementById('presentation-layer');
+                    presLayer.classList.remove('hidden');
+                    presLayer.classList.add('flex');
+                    
+                    // Show Timer (still waiting for click)
+                    document.getElementById('timer-display').classList.remove('hidden');
+                    
+                    isPresActive = true;
+                    window.scrollTo(0, 0);
+
+                    // Animate In Header Elements
+                    gsap.fromTo(".pres-element", { y: -30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, stagger: 0.1, ease: "back.out" });
+                    
+                    // Animate In Cards and setup Continuous Float
+                    gsap.fromTo(".content-card", { y: 50, opacity: 0 }, {
+                        y: 0, opacity: 1, duration: 0.8, stagger: 0.1, ease: "back.out(1.4)",
+                        onComplete: () => {
+                            contentFloaters.forEach(f => f.kill());
+                            contentFloaters = [];
+                            gsap.utils.toArray('.content-card').forEach((card, idx) => {
+                                contentFloaters.push(
+                                    gsap.to(card, {
+                                        y: "-=12",
+                                        duration: 1.5 + (idx % 3) * 0.2,
+                                        ease: "sine.inOut",
+                                        yoyo: true,
+                                        repeat: -1
+                                    })
+                                );
+                            });
+                        }
+                    });
+                }
+            });
+        }
+
+        // ============================================
+        // EVENT LISTENER: SCREEN CLICK (Starts Timer)
+        // ============================================
+        function handleScreenClick(e) {
+            // Ignore links
+            if (e.target.closest('a')) return;
+
+            if (isPresActive && !hasTimerStarted) {
+                hasTimerStarted = true;
+                
+                // Disappear instruction
+                const instr = document.getElementById('instruction-text');
+                if (instr) {
+                    gsap.to(instr, { opacity: 0, scale: 0.8, duration: 0.4, onComplete: () => instr.style.display = "none" });
+                }
+
+                startCountdown();
+            }
+        }
+
+        function startCountdown() {
+            clearInterval(timerInterval);
+
+            // Edge cases handling
+            if (totalSeconds <= 10 && totalSeconds > 0 && !isUrgent) {
+                trigger10sUrgency();
+            } else if (totalSeconds <= 0) {
+                triggerTimeUp();
+                return;
+            }
+
+            timerInterval = setInterval(() => {
+                totalSeconds--;
+                updateTimerText();
+
+                if (totalSeconds === 10 && !isUrgent) {
+                    trigger10sUrgency();
+                }
+
+                if (totalSeconds <= 0) {
+                    triggerTimeUp();
+                }
+            }, 1000);
+        }
+
+        function updateTimerText() {
+            const m = Math.floor(Math.max(totalSeconds, 0) / 60);
+            const s = Math.max(totalSeconds, 0) % 60;
+            document.getElementById('timer-display').innerText = 
+                `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        }
+
+        // ============================================
+        // 10 SECONDS LEFT
+        // ============================================
+        function trigger10sUrgency() {
+            isUrgent = true;
+            
+            // Audio 10.mp4
+            const audio10 = document.getElementById('audio-10s');
+            if (audio10) { audio10.currentTime = 0; audio10.play().catch(()=>{}); }
+
+            // Change Timer Style to Giant Center Red
+            const tEl = document.getElementById('timer-display');
+            tEl.classList.remove(...timerNormalClasses);
+            tEl.classList.add(...timerUrgentClasses);
+
+            // Trigger Red Pulse
+            const overlay = document.getElementById('red-pulse-overlay');
+            overlay.classList.remove('hidden');
+            gsap.fromTo(overlay, 
+                { opacity: 0.2 }, 
+                { opacity: 0.7, duration: 1, ease: "sine.inOut", yoyo: true, repeat: -1 }
+            );
+        }
+
+        // ============================================
+        // TIME UP & RESET LOGIC
+        // ============================================
+        function triggerTimeUp() {
+            clearInterval(timerInterval);
+            
+            // Stop Red Pulse & Hide Timer
+            gsap.killTweensOf('#red-pulse-overlay');
+            document.getElementById('red-pulse-overlay').classList.add('hidden');
+            document.getElementById('timer-display').classList.add('hidden');
+            
+            // Audio End
+            const audioEnd = document.getElementById('audio-end');
+            if (audioEnd) { audioEnd.currentTime = 0; audioEnd.play().catch(()=>{}); }
+
+            // Temporarily hide presentation content
+            const presContent = document.getElementById('pres-content');
+            const presHeader = document.getElementById('pres-header-area');
+            presContent.style.opacity = '0';
+            presHeader.style.opacity = '0';
+
+            // Show Timeout Anim Layer
+            const timeoutLayer = document.getElementById('timeout-layer');
+            timeoutLayer.classList.remove('hidden');
+            timeoutLayer.classList.add('flex');
+
+            // Generate Burst Particles SVG
+            const burstContainer = document.getElementById('particle-burst');
+            burstContainer.innerHTML = '';
+            const colors = ['#EC4899', '#0EA5E9', '#F59E0B', '#10B981'];
+            for(let i=0; i<30; i++) {
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                burstContainer.innerHTML += `
+                    <svg class="burst-particle absolute left-1/2 top-1/2 w-8 h-8" style="color: ${color};" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                    </svg>`;
+            }
+
+            // Bang Motion: Exact 5-second cinematic sequence
+            const tl = gsap.timeline({
+                onComplete: () => {
+                    // Timeout sequence finished.
+                    timeoutLayer.classList.add('hidden');
+                    timeoutLayer.classList.remove('flex');
+                    
+                    // Show Content Again smoothly
+                    gsap.to([presContent, presHeader], { opacity: 1, duration: 1 });
+
+                    // Show Reset Button
+                    const resetContainer = document.getElementById('reset-container');
+                    resetContainer.classList.remove('hidden');
+                    gsap.fromTo(resetContainer, {y: 100, opacity: 0}, {y: 0, opacity: 1, duration: 0.8, ease: "back.out"});
+                }
+            });
+            
+            // Sec 0-1: Text leaps in, particles explode
+            tl.fromTo("#timeout-text", 
+                { scale: 0.3, y: 300, rotation: -15, opacity: 0 },
+                { scale: 1, y: 0, rotation: -3, opacity: 1, duration: 1, ease: "back.out(1.7)" }
+            )
+            .fromTo(".burst-particle",
+                { x: 0, y: 0, scale: 0, opacity: 1 },
+                { x: () => (Math.random() - 0.5) * 1000, y: () => (Math.random() - 0.5) * 1000, scale: () => 1 + Math.random() * 2, rotation: () => Math.random() * 360, opacity: 0, duration: 1.5, ease: "power3.out" }, "<"
+            )
+            // Sec 1-4: Hold and pulse text (1.5s yoyo once = 3s)
+            .to("#timeout-text", { scale: 1.05, duration: 1.5, ease: "sine.inOut", yoyo: true, repeat: 1 })
+            // Sec 4-5: Fly out up
+            .to("#timeout-text", { y: -1000, scale: 0.5, rotation: 10, duration: 1, ease: "back.in(1.5)" });
+        }
+
+        // ============================================
+        // RESET APPLICATION
+        // ============================================
+        function resetApp() {
+            // Stop timers & audios
+            clearInterval(timerInterval);
+            document.querySelectorAll('audio').forEach(a => { a.pause(); a.currentTime = 0; });
+            
+            // Reset Flags
+            isPresActive = false;
+            hasTimerStarted = false;
+            isUrgent = false;
+
+            // Kill specific card floating tweens
+            contentFloaters.forEach(f => f.kill());
+            contentFloaters = [];
+
+            // Hide Pres Layer, Reset Button & Restore styling
+            const resetBtn = document.getElementById('reset-container');
+            const presLayer = document.getElementById('presentation-layer');
+            const instr = document.getElementById('instruction-text');
+            
+            resetBtn.classList.add('hidden');
+            presLayer.classList.add('hidden');
+            presLayer.classList.remove('flex');
+            
+            // Ensure headers & content are fully visible for next time
+            document.getElementById('pres-content').style.opacity = '1';
+            document.getElementById('pres-header-area').style.opacity = '1';
+            
+            // Restore instruction text
+            instr.style.display = "flex";
+            instr.style.opacity = "1";
+            instr.style.scale = "1";
+
+            // Bring back Setup Layer
+            const setupLayer = document.getElementById('setup-layer');
+            setupLayer.classList.remove('hidden');
+            gsap.fromTo(setupLayer, {opacity: 0, y: -30}, {opacity: 1, y: 0, duration: 0.5, ease: "power2.out"});
+        }
+    </script>
+</body>
+</html>
