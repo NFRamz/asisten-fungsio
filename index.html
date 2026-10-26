@@ -98,6 +98,9 @@
 
     <!-- AUDIO FILES -->
     <audio id="audio-start" src="1.mp3" preload="auto"></audio>
+    <audio id="audio-5m" src="5.mp3" preload="auto"></audio>
+    <audio id="audio-1m" src="1minute.mp3" preload="auto"></audio>
+    <audio id="audio-start" src="1.mp3" preload="auto"></audio>
     <audio id="audio-10s" src="10.mp3" preload="auto"></audio>
     <audio id="audio-end" src="end.mp3" preload="auto"></audio>
 
@@ -503,8 +506,6 @@
 
         function startCountdown() {
             clearInterval(timerInterval);
-
-            // Edge cases handling
             if (totalSeconds <= 10 && totalSeconds > 0 && !isUrgent) {
                 trigger10sUrgency();
             } else if (totalSeconds <= 0) {
@@ -516,10 +517,26 @@
                 totalSeconds--;
                 updateTimerText();
 
+                // KODE BARU: Memutar 5.mp3 saat sisa waktu 5 menit (300 detik)
+                if (totalSeconds === 300) {
+                    const audio5m = document.getElementById('audio-5m');
+                    if (audio5m) { 
+                        audio5m.currentTime = 0; 
+                        audio5m.play().catch(()=>{}); 
+                    }
+                }
+                // KODE BARU: Memutar 1m.mp3 saat sisa waktu 1 menit (60 detik)
+                if (totalSeconds === 60) {
+                    const audio1m = document.getElementById('audio-1m');
+                    if (audio1m) { 
+                        audio1m.currentTime = 0; 
+                        audio1m.play().catch(()=>{}); 
+                    }
+                }
+
                 if (totalSeconds === 10 && !isUrgent) {
                     trigger10sUrgency();
                 }
-
                 if (totalSeconds <= 0) {
                     triggerTimeUp();
                 }
