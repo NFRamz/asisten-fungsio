@@ -10,28 +10,102 @@
     <!-- GSAP -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <!-- Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     
     <style>
         body {
             font-family: 'Nunito', sans-serif;
-            background-color: #F8FAFC;
+            background-color: #F4F8FB;
             overflow-x: hidden;
         }
         .font-display {
             font-family: 'Fredoka', sans-serif;
         }
+        .font-code {
+            font-family: 'JetBrains Mono', monospace;
+        }
 
-        /* Continuous Floating Background Layer */
-        .bg-layer {
+        /* ================= MOTION GRAPHICS STAGE ================= */
+        #mg-stage {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+            background: linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 50%, #FDF2F8 100%);
+            transition: background 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        /* Aurora / Mesh Gradient Blobs */
+        .mg-blob {
+            position: absolute;
+            border-radius: 9999px;
+            filter: blur(85px);
+            opacity: 0.45;
+            will-change: transform, background-color, opacity;
+            mix-blend-mode: multiply;
+            transition: background-color 1s ease;
+        }
+
+        /* Perspective Architectural Floor / Ceiling Grid */
+        .mg-perspective-grid {
+            position: absolute;
+            inset: -25%;
+            width: 150%;
+            height: 150%;
+            background-size: 64px 64px;
             background-image: 
-                radial-gradient(circle at 20% 30%, rgba(14, 165, 233, 0.1) 0%, transparent 40%),
-                radial-gradient(circle at 80% 70%, rgba(236, 72, 153, 0.1) 0%, transparent 40%);
+                linear-gradient(to right, rgba(14, 165, 233, 0.06) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(14, 165, 233, 0.06) 1px, transparent 1px);
+            mask-image: radial-gradient(ellipse 70% 65% at 50% 50%, rgba(0,0,0,0.85) 10%, transparent 80%);
+            -webkit-mask-image: radial-gradient(ellipse 70% 65% at 50% 50%, rgba(0,0,0,0.85) 10%, transparent 80%);
+            will-change: transform;
+        }
+
+        /* Floating Ghost Code & Geometry */
+        .mg-depth-layer {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            will-change: transform;
+        }
+
+        .mg-glyph {
+            position: absolute;
+            user-select: none;
+            will-change: transform, opacity;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 800;
+            line-height: 1;
+            transition: color 0.8s ease, border-color 0.8s ease;
+        }
+
+        /* Subtle Grain Texture so gradients never band */
+        .mg-grain {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.032;
+            pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+
+        /* Soft readability vignette in center pocket */
+        .mg-pocket-shield {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 50% 50%, rgba(248, 250, 252, 0.45) 0%, rgba(248, 250, 252, 0.12) 60%, transparent 100%);
+            pointer-events: none;
         }
 
         /* Spiral Notebook CSS */
         .spiral-notebook {
-            background-color: #ffffff;
+            background-color: rgba(255, 255, 255, 0.94);
+            backdrop-filter: blur(12px);
             border: 3px solid #E2E8F0;
             border-radius: 16px;
             box-shadow: 0 20px 40px -10px rgba(0,0,0,0.1);
@@ -80,6 +154,7 @@
         /* Timer Smooth Centering Transition */
         .timer-transition {
             transition: all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); 
+            font-variant-numeric: tabular-nums;
         }
 
         /* Form Inputs */
@@ -94,26 +169,110 @@
         }
     </style>
 </head>
-<body class="antialiased text-slate-800 bg-layer min-h-screen relative">
+<body class="antialiased text-slate-800 min-h-screen relative">
 
     <!-- AUDIO FILES -->
     <audio id="audio-start" src="1.mp3" preload="auto"></audio>
     <audio id="audio-5m" src="5.mp3" preload="auto"></audio>
     <audio id="audio-1m" src="1minute.mp3" preload="auto"></audio>
-    <audio id="audio-start" src="1.mp3" preload="auto"></audio>
     <audio id="audio-10s" src="10.mp3" preload="auto"></audio>
     <audio id="audio-end" src="end.mp3" preload="auto"></audio>
 
-    <!-- ================= 0. BACKGROUND SVG FLOATERS (Bang Motion) ================= -->
-    <div id="bg-floaters" class="fixed inset-0 w-full h-full pointer-events-none z-0">
-        <svg class="bg-shape absolute w-16 h-16 text-sky-300/40" style="top: 15%; left: 10%;" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg>
-        <svg class="bg-shape absolute w-10 h-10 text-pink-300/50" style="top: 40%; right: 15%;" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
-        <svg class="bg-shape absolute w-24 h-24 text-cyan-200/40" style="bottom: 15%; left: 20%;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
-        <div class="bg-shape absolute w-6 h-6 bg-purple-300/40 rounded-full" style="top: 70%; right: 30%;"></div>
-        <div class="bg-shape absolute w-4 h-4 bg-sky-400/50 rounded-full" style="top: 25%; right: 40%;"></div>
+    <!-- ================= 0. MOTION GRAPHICS BACKGROUND STAGE ================= -->
+    <div id="mg-stage">
+        <!-- 0A. Organic Multi-Blob Aurora Surface -->
+        <div id="mg-blob-1" class="mg-blob w-[34rem] h-[34rem] bg-sky-300/60 -top-24 -left-24"></div>
+        <div id="mg-blob-2" class="mg-blob w-[30rem] h-[30rem] bg-pink-300/50 top-1/3 -right-24"></div>
+        <div id="mg-blob-3" class="mg-blob w-[36rem] h-[36rem] bg-cyan-200/60 -bottom-32 left-1/4"></div>
+        <div id="mg-blob-4" class="mg-blob w-[24rem] h-[24rem] bg-indigo-300/40 top-1/4 left-1/3"></div>
+
+        <!-- 0B. Breathing Perspective Blueprint Grid -->
+        <div id="mg-grid" class="mg-perspective-grid"></div>
+
+        <!-- 0C. Interactive Canvas: Mathematical Wave Field, Function Pipes & Shockwaves -->
+        <canvas id="mg-canvas" class="absolute inset-0 w-full h-full"></canvas>
+
+        <!-- 0D. Multi-Depth Parallax Vector & Functional Typography Layers -->
+        <!-- FAR LAYER (Large Watermark Functional Constructs) -->
+        <div id="mg-layer-far" class="mg-depth-layer">
+            <div class="mg-glyph text-[13rem] text-sky-500/[0.045] select-none" style="top: 4%; left: 3%;">λ</div>
+            <div class="mg-glyph text-[9rem] text-indigo-500/[0.04] select-none" style="bottom: 6%; right: 4%;">f(x)</div>
+            <div class="mg-glyph text-[8rem] text-pink-500/[0.04] select-none" style="top: 52%; left: 6%;">|&gt;</div>
+            <div class="mg-glyph text-[7.5rem] text-cyan-600/[0.045] select-none" style="top: 10%; right: 9%;">= &gt;</div>
+            
+            <!-- Giant Rotating Orbital Ring SVG -->
+            <svg class="mg-orbital absolute w-[32rem] h-[32rem] text-sky-400/15" style="top: -8%; right: -6%;" viewBox="0 0 200 200" fill="none">
+                <circle cx="100" cy="100" r="88" stroke="currentColor" stroke-width="1.2" stroke-dasharray="8 10" />
+                <circle cx="100" cy="100" r="68" stroke="currentColor" stroke-width="0.8" stroke-dasharray="3 6" />
+                <circle cx="100" cy="12" r="4" fill="currentColor" />
+                <circle cx="188" cy="100" r="3" fill="currentColor" />
+            </svg>
+
+            <svg class="mg-orbital-rev absolute w-[28rem] h-[28rem] text-pink-400/15" style="bottom: -10%; left: -5%;" viewBox="0 0 200 200" fill="none">
+                <circle cx="100" cy="100" r="85" stroke="currentColor" stroke-width="1.2" stroke-dasharray="12 8" />
+                <rect x="40" y="40" width="120" height="120" rx="24" stroke="currentColor" stroke-width="0.8" stroke-dasharray="4 8" />
+            </svg>
+        </div>
+
+        <!-- MID LAYER (Functional Badges, Isometric Shapes & Code Pills) -->
+        <div id="mg-layer-mid" class="mg-depth-layer">
+            <!-- Code Pill 1 -->
+            <div class="mg-floater absolute flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/50 border border-sky-200/60 shadow-sm backdrop-blur-xs text-sky-600/50 font-code text-xs" style="top: 18%; left: 14%;">
+                <span class="w-2 h-2 rounded-full bg-sky-400/60"></span>
+                <span>map(f) ∘ filter(p)</span>
+            </div>
+            <!-- Code Pill 2 -->
+            <div class="mg-floater absolute flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/50 border border-pink-200/60 shadow-sm backdrop-blur-xs text-pink-600/50 font-code text-xs" style="bottom: 20%; right: 12%;">
+                <span class="w-2 h-2 rounded-full bg-pink-400/60"></span>
+                <span>foldr (::) []</span>
+            </div>
+            <!-- Code Pill 3 -->
+            <div class="mg-floater absolute flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/50 border border-indigo-200/60 shadow-sm backdrop-blur-xs text-indigo-600/50 font-code text-xs" style="top: 28%; right: 18%;">
+                <span>pure :: a -&gt; f a</span>
+            </div>
+            <!-- Code Pill 4 -->
+            <div class="mg-floater absolute flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/50 border border-cyan-200/60 shadow-sm backdrop-blur-xs text-cyan-600/50 font-code text-xs" style="bottom: 14%; left: 22%;">
+                <span>λx -&gt; x + 1</span>
+            </div>
+
+            <!-- Geometric Vector Floaters -->
+            <svg class="mg-floater absolute w-16 h-16 text-sky-400/30" style="top: 38%; left: 4%;" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polygon points="32,6 56,20 56,44 32,58 8,44 8,20" stroke-linejoin="round" />
+                <polyline points="8,20 32,34 56,20" />
+                <line x1="32" y1="34" x2="32" y2="58" />
+            </svg>
+
+            <svg class="mg-floater absolute w-14 h-14 text-pink-400/30" style="top: 65%; right: 6%;" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.5">
+                <circle cx="32" cy="32" r="22" stroke-dasharray="6 6" />
+                <circle cx="32" cy="32" r="8" fill="currentColor" fill-opacity="0.2" />
+            </svg>
+
+            <svg class="mg-floater absolute w-20 h-20 text-indigo-400/25" style="top: 12%; left: 45%;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+            </svg>
+        </div>
+
+        <!-- NEAR LAYER (Crisp Kinetic Accents & Crosshairs) -->
+        <div id="mg-layer-near" class="mg-depth-layer">
+            <div class="mg-floater absolute text-sky-400/40 font-code font-bold text-xl" style="top: 24%; left: 7%;">+</div>
+            <div class="mg-floater absolute text-pink-400/40 font-code font-bold text-xl" style="top: 75%; left: 12%;">+</div>
+            <div class="mg-floater absolute text-indigo-400/40 font-code font-bold text-xl" style="top: 16%; right: 11%;">+</div>
+            <div class="mg-floater absolute text-cyan-400/40 font-code font-bold text-xl" style="bottom: 28%; right: 22%;">+</div>
+
+            <svg class="mg-floater absolute w-10 h-10 text-amber-400/35" style="bottom: 32%; left: 8%;" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2L14.8 9.2L22 12L14.8 14.8L12 22L9.2 14.8L2 12L9.2 9.2L12 2Z"/>
+            </svg>
+            <svg class="mg-floater absolute w-8 h-8 text-sky-400/35" style="top: 46%; right: 9%;" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2L14.8 9.2L22 12L14.8 14.8L12 22L9.2 14.8L2 12L9.2 9.2L12 2Z"/>
+            </svg>
+        </div>
+
+        <!-- 0E. Center Readability Shield & Film Grain -->
+        <div class="mg-pocket-shield"></div>
+        <div class="mg-grain"></div>
     </div>
 
-    <!-- ================= START NOTIFICATION OVERLAY (Mendesain Ulang Mirip Waktu Habis) ================= -->
+    <!-- ================= START NOTIFICATION OVERLAY ================= -->
     <div id="start-layer" class="hidden fixed inset-0 z-[130] pointer-events-none flex-col justify-center items-center">
         <div id="start-particle-burst" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
         <h1 id="start-text" class="text-6xl md:text-8xl font-extrabold font-display text-sky-500 uppercase transform rotate-2 drop-shadow-[0_15px_35px_rgba(14,165,233,0.5)] text-center leading-none">
@@ -122,18 +281,18 @@
     </div>
 
     <!-- ================= RED PULSE OVERLAY (10s Urgency) ================= -->
-    <div id="red-pulse-overlay" class="fixed inset-0 bg-red-500/30 z-40 hidden pointer-events-none"></div>
+    <div id="red-pulse-overlay" class="fixed inset-0 bg-red-500/25 z-40 hidden pointer-events-none"></div>
 
     <!-- ================= EXPLICIT TIMER ELEMENT ================= -->
     <!-- Default state: Top Right Rounded Pill -->
-    <div id="timer-display" class="hidden fixed z-[100] top-6 right-6 bg-white px-6 py-2 rounded-full shadow-lg border-2 border-slate-100 text-4xl text-slate-800 font-bold font-sans timer-transition pointer-events-none">
+    <div id="timer-display" class="hidden fixed z-[100] top-6 right-6 bg-white/95 backdrop-blur-md px-6 py-2 rounded-full shadow-lg border-2 border-slate-100 text-4xl text-slate-800 font-bold font-sans timer-transition pointer-events-none min-w-[9.5rem] text-center">
         00:00
     </div>
 
 
     <!-- ================= 1. SETUP LAYER ================= -->
     <div id="setup-layer" class="relative z-50 w-full min-h-screen flex flex-col items-center py-12 px-6">
-        <div class="w-full max-w-4xl bg-white/80 backdrop-blur-xl p-8 md:p-10 rounded-3xl shadow-2xl border border-white">
+        <div class="w-full max-w-4xl bg-white/85 backdrop-blur-xl p-8 md:p-10 rounded-3xl shadow-2xl border border-white/90">
             <div class="text-center mb-10 setup-stagger">
                 <h1 class="text-4xl md:text-5xl font-extrabold text-slate-800 font-display mb-2">Setup</h1>
                 <p class="text-slate-500 font-medium text-lg"></p>
@@ -159,19 +318,19 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 pb-8 border-b-2 border-slate-100 setup-stagger">
                 <div>
                     <label class="block font-bold text-slate-700 mb-2">Judul Utama</label>
-                    <input type="text" id="in-maintitle" value="EXERCISE IMPLEMENTATION" class="setup-input w-full px-4 py-3 rounded-xl font-bold font-display uppercase">
+                    <input type="text" id="in-maintitle" value="EXERCISE IMPLEMENTATION" class="setup-input w-full px-4 py-3 rounded-xl font-bold font-display uppercase bg-white/90">
                 </div>
                 <div>
                     <label class="block font-bold text-slate-700 mb-2">Subjudul</label>
-                    <input type="text" id="in-subtitle" value="Codelab Fungsional" class="setup-input w-full px-4 py-3 rounded-xl font-bold font-display">
+                    <input type="text" id="in-subtitle" value="Codelab Fungsional" class="setup-input w-full px-4 py-3 rounded-xl font-bold font-display bg-white/90">
                 </div>
                 <div>
                     <label class="block font-bold text-slate-700 mb-2">Waktu (Menit)</label>
-                    <input type="number" id="in-min" value="10" min="0" class="setup-input w-full px-4 py-3 rounded-xl font-bold text-xl">
+                    <input type="number" id="in-min" value="10" min="0" class="setup-input w-full px-4 py-3 rounded-xl font-bold text-xl bg-white/90">
                 </div>
                 <div>
                     <label class="block font-bold text-slate-700 mb-2">Waktu (Detik)</label>
-                    <input type="number" id="in-sec" value="0" min="0" max="59" class="setup-input w-full px-4 py-3 rounded-xl font-bold text-xl">
+                    <input type="number" id="in-sec" value="0" min="0" max="59" class="setup-input w-full px-4 py-3 rounded-xl font-bold text-xl bg-white/90">
                 </div>
             </div>
 
@@ -179,11 +338,11 @@
             <div id="demo-fields" class="hidden space-y-6 setup-stagger">
                 <div>
                     <label class="block font-bold text-slate-700 mb-2">Teks Instruksi / Pesan</label>
-                    <input type="text" id="demo-msg" value="Silahkan didownload, buka melalui VsCode dan matikan Wi-Fi." class="setup-input w-full px-4 py-3 rounded-xl font-medium">
+                    <input type="text" id="demo-msg" value="Silahkan didownload, buka melalui VsCode dan matikan Wi-Fi." class="setup-input w-full px-4 py-3 rounded-xl font-medium bg-white/90">
                 </div>
                 <div>
                     <label class="block font-bold text-slate-700 mb-2">Link Tujuan</label>
-                    <input type="text" id="demo-link" value="bit.ly/fungsio-d6" class="setup-input w-full px-4 py-3 rounded-xl font-bold text-sky-600 font-mono">
+                    <input type="text" id="demo-link" value="bit.ly/fungsio-d6" class="setup-input w-full px-4 py-3 rounded-xl font-bold text-sky-600 font-mono bg-white/90">
                 </div>
             </div>
 
@@ -192,7 +351,7 @@
                 <div class="flex items-end gap-4">
                     <div class="flex-1">
                         <label class="block font-bold text-slate-700 mb-2">Jumlah Soal</label>
-                        <input type="number" id="in-count" value="6" min="1" max="12" class="setup-input w-full px-4 py-3 rounded-xl font-bold text-xl">
+                        <input type="number" id="in-count" value="6" min="1" max="12" class="setup-input w-full px-4 py-3 rounded-xl font-bold text-xl bg-white/90">
                     </div>
                     <button onclick="generateQuestions()" class="bg-slate-800 text-white px-6 py-3 rounded-xl font-bold hover:bg-slate-700 transition">Buat Form Soal</button>
                 </div>
@@ -222,7 +381,7 @@
 
         <!-- Header Content -->
         <div id="pres-header-area" class="text-center mt-24 md:mt-12 mb-12 w-full max-w-5xl pres-element pointer-events-none transition-opacity duration-500">
-            <h1 id="pres-maintitle" class="text-5xl md:text-6xl font-extrabold text-slate-800 font-display mb-2 uppercase tracking-tight">TITLE</h1>
+            <h1 id="pres-maintitle" class="text-5xl md:text-6xl font-extrabold text-slate-800 font-display mb-2 uppercase tracking-tight drop-shadow-xs">TITLE</h1>
             <h2 id="pres-subtitle" class="text-2xl md:text-3xl font-bold text-sky-600 font-display">Subtitle</h2>
         </div>
 
@@ -265,11 +424,419 @@
         let contentFloaters = []; 
 
         // CSS Classes for Timer States
-        const timerNormalClasses = ['top-6', 'right-6', 'bg-white', 'px-6', 'py-2', 'rounded-full', 'shadow-lg', 'border-2', 'border-slate-100', 'text-4xl', 'text-slate-800'];
+        const timerNormalClasses = ['top-6', 'right-6', 'bg-white/95', 'backdrop-blur-md', 'px-6', 'py-2', 'rounded-full', 'shadow-lg', 'border-2', 'border-slate-100', 'text-4xl', 'text-slate-800'];
         const timerUrgentClasses = ['top-1/2', 'left-1/2', '-translate-x-1/2', '-translate-y-1/2', 'text-[8rem]', 'md:text-[12rem]', 'text-red-600', 'drop-shadow-2xl'];
 
+        // ============================================================
+        // BANG MOTION BACKGROUND ENGINE (Canvas + Multi-Layer GSAP)
+        // ============================================================
+        const MotionBG = (() => {
+            let canvas, ctx, width, height, dpr;
+            let mood = 'setup'; // 'setup' | 'presentation' | 'running' | 'urgent' | 'timeout'
+            let speedMultiplier = 1;
+            let targetSpeed = 1;
+            let phase = 0;
+
+            // Mouse Parallax State
+            let mouseX = 0, mouseY = 0;
+            let smoothX = 0, smoothY = 0;
+
+            // Palette interpolation state
+            const palettes = {
+                setup: {
+                    bg: 'linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 50%, #FDF2F8 100%)',
+                    blobs: ['rgba(56, 189, 248, 0.45)', 'rgba(244, 114, 182, 0.38)', 'rgba(103, 232, 249, 0.45)', 'rgba(129, 140, 248, 0.35)'],
+                    waveColor: 'rgba(14, 165, 233, 0.14)',
+                    nodeColor: 'rgba(56, 189, 248, 0.35)',
+                    streamColors: ['#0EA5E9', '#EC4899', '#6366F1', '#06B6D4'],
+                    speed: 0.9
+                },
+                presentation: {
+                    bg: 'linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 55%, #F5F3FF 100%)',
+                    blobs: ['rgba(14, 165, 233, 0.5)', 'rgba(99, 102, 241, 0.4)', 'rgba(34, 211, 238, 0.5)', 'rgba(236, 72, 153, 0.32)'],
+                    waveColor: 'rgba(2, 132, 199, 0.16)',
+                    nodeColor: 'rgba(14, 165, 233, 0.42)',
+                    streamColors: ['#0284C7', '#06B6D4', '#4F46E5', '#EC4899'],
+                    speed: 1.25
+                },
+                running: {
+                    bg: 'linear-gradient(135deg, #ECFEFF 0%, #E0F2FE 50%, #FCE7F3 100%)',
+                    blobs: ['rgba(6, 182, 212, 0.52)', 'rgba(56, 189, 248, 0.48)', 'rgba(16, 185, 129, 0.35)', 'rgba(236, 72, 153, 0.38)'],
+                    waveColor: 'rgba(6, 182, 212, 0.18)',
+                    nodeColor: 'rgba(14, 165, 233, 0.48)',
+                    streamColors: ['#0EA5E9', '#10B981', '#06B6D4', '#F43F5E'],
+                    speed: 1.8
+                },
+                urgent: {
+                    bg: 'linear-gradient(135deg, #FEF2F2 0%, #FFE4E6 50%, #FFF1F2 100%)',
+                    blobs: ['rgba(239, 68, 68, 0.55)', 'rgba(244, 63, 94, 0.5)', 'rgba(249, 115, 22, 0.48)', 'rgba(236, 72, 153, 0.45)'],
+                    waveColor: 'rgba(225, 29, 72, 0.22)',
+                    nodeColor: 'rgba(239, 68, 68, 0.55)',
+                    streamColors: ['#EF4444', '#F97316', '#E11D48', '#EC4899'],
+                    speed: 3.6
+                },
+                timeout: {
+                    bg: 'linear-gradient(135deg, #FDF2F8 0%, #FCE7F3 50%, #EFF6FF 100%)',
+                    blobs: ['rgba(236, 72, 153, 0.52)', 'rgba(14, 165, 233, 0.48)', 'rgba(245, 158, 11, 0.42)', 'rgba(168, 85, 247, 0.42)'],
+                    waveColor: 'rgba(219, 39, 119, 0.18)',
+                    nodeColor: 'rgba(236, 72, 153, 0.45)',
+                    streamColors: ['#EC4899', '#0EA5E9', '#F59E0B', '#8B5CF6'],
+                    speed: 1.4
+                }
+            };
+
+            // Data Streams (Functional Pipelines flowing across screen)
+            const streams = [];
+            // Shockwave Ripples
+            const ripples = [];
+            // Floating Geometry Particles on Canvas
+            const particles = [];
+
+            function resize() {
+                if (!canvas) return;
+                dpr = Math.min(window.devicePixelRatio || 1, 2);
+                width = window.innerWidth;
+                height = window.innerHeight;
+                canvas.width = width * dpr;
+                canvas.height = height * dpr;
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            }
+
+            function createStreams() {
+                streams.length = 0;
+                const count = 7;
+                for (let i = 0; i < count; i++) {
+                    streams.push({
+                        yRatio: 0.12 + (i / (count - 1)) * 0.76,
+                        amp: 35 + (i % 3) * 28,
+                        freq: 0.0022 + (i % 4) * 0.0006,
+                        phaseOffset: i * 1.3,
+                        progress: (i * 0.27) % 1,
+                        speed: 0.0018 + (i % 3) * 0.0007,
+                        colorIndex: i % 4,
+                        length: 110 + (i % 3) * 45
+                    });
+                }
+            }
+
+            function createParticles() {
+                particles.length = 0;
+                const count = 26;
+                for (let i = 0; i < count; i++) {
+                    particles.push({
+                        x: Math.random() * window.innerWidth,
+                        y: Math.random() * window.innerHeight,
+                        r: 2 + (i % 4) * 1.5,
+                        vx: (i % 2 === 0 ? 1 : -1) * (0.25 + (i % 5) * 0.08),
+                        vy: -0.2 - (i % 4) * 0.12,
+                        type: i % 3, // 0: circle, 1: ring, 2: diamond
+                        angle: i * 0.5,
+                        vAngle: (i % 2 === 0 ? 1 : -1) * 0.015,
+                        colorIndex: i % 4
+                    });
+                }
+            }
+
+            function initGSAPStage() {
+                // 1. Aurora Blobs Continuous Organic Choreography
+                const blobs = ['#mg-blob-1', '#mg-blob-2', '#mg-blob-3', '#mg-blob-4'];
+                blobs.forEach((sel, i) => {
+                    gsap.to(sel, {
+                        x: (i % 2 === 0 ? 120 : -120),
+                        y: (i < 2 ? 90 : -90),
+                        scale: 1.18,
+                        rotation: i % 2 === 0 ? 25 : -25,
+                        duration: 9 + i * 2.2,
+                        ease: 'sine.inOut',
+                        yoyo: true,
+                        repeat: -1
+                    });
+                });
+
+                // 2. Breathing Perspective Blueprint Grid
+                gsap.to('#mg-grid', {
+                    scale: 1.07,
+                    rotation: 1.5,
+                    duration: 8,
+                    ease: 'sine.inOut',
+                    yoyo: true,
+                    repeat: -1
+                });
+
+                // 3. Giant Orbital Rings
+                gsap.to('.mg-orbital', {
+                    rotation: 360,
+                    duration: 48,
+                    ease: 'none',
+                    repeat: -1
+                });
+                gsap.to('.mg-orbital-rev', {
+                    rotation: -360,
+                    duration: 56,
+                    ease: 'none',
+                    repeat: -1
+                });
+
+                // 4. Floating Glyphs & Mid/Near Layer Elements
+                gsap.utils.toArray('.mg-glyph').forEach((el, i) => {
+                    gsap.to(el, {
+                        y: (i % 2 === 0 ? -28 : 28),
+                        x: (i % 2 === 0 ? 18 : -18),
+                        rotation: (i % 2 === 0 ? 6 : -6),
+                        duration: 5.5 + i * 1.1,
+                        ease: 'sine.inOut',
+                        yoyo: true,
+                        repeat: -1
+                    });
+                });
+
+                gsap.utils.toArray('.mg-floater').forEach((el, i) => {
+                    gsap.to(el, {
+                        y: `+=${16 + (i % 4) * 8}`,
+                        x: `+=${(i % 2 === 0 ? 12 : -12)}`,
+                        rotation: (i % 2 === 0 ? 10 : -10),
+                        duration: 3.2 + (i % 5) * 0.7,
+                        ease: 'sine.inOut',
+                        yoyo: true,
+                        repeat: -1
+                    });
+                });
+            }
+
+            function render() {
+                if (!ctx) return;
+                const pal = palettes[mood] || palettes.setup;
+
+                // Smoothly approach target speed
+                speedMultiplier += (targetSpeed - speedMultiplier) * 0.05;
+                phase += 0.018 * speedMultiplier;
+
+                // Smooth mouse parallax
+                smoothX += (mouseX - smoothX) * 0.06;
+                smoothY += (mouseY - smoothY) * 0.06;
+
+                // Apply parallax to DOM depth layers
+                const farLayer = document.getElementById('mg-layer-far');
+                const midLayer = document.getElementById('mg-layer-mid');
+                const nearLayer = document.getElementById('mg-layer-near');
+                const gridLayer = document.getElementById('mg-grid');
+
+                if (farLayer) farLayer.style.transform = `translate3d(${smoothX * -14}px, ${smoothY * -14}px, 0)`;
+                if (midLayer) midLayer.style.transform = `translate3d(${smoothX * -28}px, ${smoothY * -28}px, 0)`;
+                if (nearLayer) nearLayer.style.transform = `translate3d(${smoothX * -46}px, ${smoothY * -46}px, 0)`;
+                if (gridLayer) gridLayer.style.backgroundPosition = `${smoothX * -20 + phase * 12}px ${smoothY * -20 + phase * 8}px`;
+
+                ctx.clearRect(0, 0, width, height);
+
+                // 1. Draw Functional Sine Wave Streams & Glowing Packets
+                streams.forEach((st, idx) => {
+                    const baseY = height * st.yRatio + smoothY * -18;
+                    ctx.beginPath();
+                    const step = 28;
+                    for (let x = 0; x <= width + step; x += step) {
+                        const y = baseY + Math.sin(x * st.freq + phase * (0.8 + idx * 0.15) + st.phaseOffset) * st.amp
+                                        + Math.cos(x * st.freq * 0.5 - phase * 0.5) * (st.amp * 0.35);
+                        if (x === 0) ctx.moveTo(x, y);
+                        else ctx.lineTo(x, y);
+                    }
+                    ctx.strokeStyle = pal.waveColor;
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+
+                    // Advance glowing data packet along the curve
+                    st.progress = (st.progress + st.speed * speedMultiplier) % 1;
+                    const headX = st.progress * (width + st.length * 2) - st.length;
+                    const tailX = headX - st.length;
+
+                    if (headX > 0 && tailX < width) {
+                        const color = pal.streamColors[st.colorIndex % pal.streamColors.length];
+                        const grad = ctx.createLinearGradient(tailX, 0, headX, 0);
+                        grad.addColorStop(0, 'rgba(255,255,255,0)');
+                        grad.addColorStop(0.7, color + '66');
+                        grad.addColorStop(1, color);
+
+                        ctx.beginPath();
+                        for (let x = Math.max(0, tailX); x <= Math.min(width, headX); x += 8) {
+                            const y = baseY + Math.sin(x * st.freq + phase * (0.8 + idx * 0.15) + st.phaseOffset) * st.amp
+                                            + Math.cos(x * st.freq * 0.5 - phase * 0.5) * (st.amp * 0.35);
+                            if (x === Math.max(0, tailX)) ctx.moveTo(x, y);
+                            else ctx.lineTo(x, y);
+                        }
+                        ctx.strokeStyle = grad;
+                        ctx.lineWidth = 3;
+                        ctx.lineCap = 'round';
+                        ctx.stroke();
+
+                        // Glowing head node
+                        if (headX >= 0 && headX <= width) {
+                            const headY = baseY + Math.sin(headX * st.freq + phase * (0.8 + idx * 0.15) + st.phaseOffset) * st.amp
+                                                + Math.cos(headX * st.freq * 0.5 - phase * 0.5) * (st.amp * 0.35);
+                            ctx.beginPath();
+                            ctx.arc(headX, headY, 3.5, 0, Math.PI * 2);
+                            ctx.fillStyle = color;
+                            ctx.fill();
+                        }
+                    }
+                });
+
+                // 2. Draw Floating Geometric Micro-Particles & Constellation Links
+                particles.forEach((p, i) => {
+                    p.x += p.vx * speedMultiplier;
+                    p.y += p.vy * speedMultiplier;
+                    p.angle += p.vAngle * speedMultiplier;
+
+                    if (p.x < -30) p.x = width + 30;
+                    if (p.x > width + 30) p.x = -30;
+                    if (p.y < -30) p.y = height + 30;
+                    if (p.y > height + 30) p.y = -30;
+
+                    const px = p.x + smoothX * -22;
+                    const py = p.y + smoothY * -22;
+                    const color = pal.streamColors[p.colorIndex % pal.streamColors.length];
+
+                    // Subtle proximity links
+                    for (let j = i + 1; j < particles.length; j++) {
+                        const p2 = particles[j];
+                        const dx = (p2.x + smoothX * -22) - px;
+                        const dy = (p2.y + smoothY * -22) - py;
+                        const distSq = dx * dx + dy * dy;
+                        if (distSq < 18000) {
+                            const alpha = (1 - distSq / 18000) * 0.14;
+                            ctx.beginPath();
+                            ctx.moveTo(px, py);
+                            ctx.lineTo(px + dx, py + dy);
+                            ctx.strokeStyle = pal.nodeColor.replace(/[\d.]+\)$/g, `${alpha})`);
+                            ctx.lineWidth = 1;
+                            ctx.stroke();
+                        }
+                    }
+
+                    ctx.save();
+                    ctx.translate(px, py);
+                    ctx.rotate(p.angle);
+                    ctx.fillStyle = color + '44';
+                    ctx.strokeStyle = color + '55';
+                    ctx.lineWidth = 1.5;
+
+                    if (p.type === 0) {
+                        ctx.beginPath();
+                        ctx.arc(0, 0, p.r, 0, Math.PI * 2);
+                        ctx.fill();
+                    } else if (p.type === 1) {
+                        ctx.beginPath();
+                        ctx.arc(0, 0, p.r * 1.4, 0, Math.PI * 2);
+                        ctx.stroke();
+                    } else {
+                        const s = p.r * 1.4;
+                        ctx.beginPath();
+                        ctx.moveTo(0, -s);
+                        ctx.lineTo(s, 0);
+                        ctx.lineTo(0, s);
+                        ctx.lineTo(-s, 0);
+                        ctx.closePath();
+                        ctx.stroke();
+                    }
+                    ctx.restore();
+                });
+
+                // 3. Draw Interactive / State-Triggered Shockwave Ripples
+                for (let i = ripples.length - 1; i >= 0; i--) {
+                    const rp = ripples[i];
+                    rp.r += rp.speed;
+                    rp.alpha *= 0.96;
+
+                    ctx.beginPath();
+                    ctx.arc(rp.x, rp.y, rp.r, 0, Math.PI * 2);
+                    ctx.strokeStyle = rp.color;
+                    ctx.globalAlpha = rp.alpha;
+                    ctx.lineWidth = rp.lineWidth;
+                    ctx.stroke();
+                    ctx.globalAlpha = 1;
+
+                    if (rp.alpha < 0.015) {
+                        ripples.splice(i, 1);
+                    }
+                }
+            }
+
+            function setMood(newMood) {
+                mood = newMood;
+                const pal = palettes[newMood] || palettes.setup;
+                targetSpeed = pal.speed;
+
+                const stage = document.getElementById('mg-stage');
+                if (stage) stage.style.background = pal.bg;
+
+                const blobIds = ['mg-blob-1', 'mg-blob-2', 'mg-blob-3', 'mg-blob-4'];
+                blobIds.forEach((id, idx) => {
+                    const el = document.getElementById(id);
+                    if (el) el.style.backgroundColor = pal.blobs[idx];
+                });
+
+                // Camera punch on mood change
+                gsap.fromTo('#mg-stage',
+                    { scale: 1.035 },
+                    { scale: 1, duration: 1.1, ease: 'power3.out', overwrite: 'auto' }
+                );
+            }
+
+            function triggerShockwave(x, y, color = '#0EA5E9') {
+                ripples.push({
+                    x: x || width / 2,
+                    y: y || height / 2,
+                    r: 10,
+                    speed: 18,
+                    alpha: 0.55,
+                    lineWidth: 4,
+                    color
+                });
+                ripples.push({
+                    x: x || width / 2,
+                    y: y || height / 2,
+                    r: 2,
+                    speed: 11,
+                    alpha: 0.35,
+                    lineWidth: 2,
+                    color
+                });
+            }
+
+            function init() {
+                canvas = document.getElementById('mg-canvas');
+                ctx = canvas.getContext('2d');
+                resize();
+                createStreams();
+                createParticles();
+                initGSAPStage();
+                setMood('setup');
+
+                window.addEventListener('resize', () => {
+                    resize();
+                    createStreams();
+                });
+
+                window.addEventListener('mousemove', (e) => {
+                    mouseX = (e.clientX / window.innerWidth) - 0.5;
+                    mouseY = (e.clientY / window.innerHeight) - 0.5;
+                });
+
+                window.addEventListener('pointerdown', (e) => {
+                    const clickColor = mood === 'urgent' ? '#EF4444' : '#38BDF8';
+                    triggerShockwave(e.clientX, e.clientY, clickColor);
+                });
+
+                gsap.ticker.add(render);
+            }
+
+            return {
+                init,
+                setMood,
+                triggerShockwave
+            };
+        })();
+
         window.onload = () => {
-            initBangMotionFloaters();
+            MotionBG.init();
             generateQuestions();
 
             // Initial Setup animation
@@ -277,22 +844,6 @@
                 y: 30, opacity: 0, duration: 0.6, stagger: 0.1, ease: "back.out(1.2)"
             });
         };
-
-        // Bang Motion Style Continuous SVG Float
-        function initBangMotionFloaters() {
-            gsap.utils.toArray('.bg-shape').forEach((shape, i) => {
-                gsap.to(shape, {
-                    y: `+=${20 + Math.random() * 20}`,
-                    x: `+=${-15 + Math.random() * 30}`,
-                    rotation: i % 2 === 0 ? 15 : -15,
-                    scale: 1.1 + Math.random() * 0.2,
-                    duration: 3 + Math.random() * 2,
-                    ease: "sine.inOut",
-                    yoyo: true,
-                    repeat: -1
-                });
-            });
-        }
 
         function toggleMode() {
             const mode = document.querySelector('input[name="mode"]:checked').value;
@@ -312,12 +863,12 @@
             
             for(let i = 1; i <= count; i++) {
                 container.innerHTML += `
-                    <div class="bg-slate-50 p-5 rounded-2xl border border-slate-200">
+                    <div class="bg-slate-50/90 p-5 rounded-2xl border border-slate-200">
                         <div class="flex items-center gap-3 mb-3">
                             <div class="bg-sky-500 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold">${i}</div>
-                            <input type="text" id="q-title-${i}" value="EXERCISE ${i}" class="setup-input flex-1 px-4 py-2 rounded-lg font-bold uppercase text-sm">
+                            <input type="text" id="q-title-${i}" value="EXERCISE ${i}" class="setup-input flex-1 px-4 py-2 rounded-lg font-bold uppercase text-sm bg-white">
                         </div>
-                        <textarea id="q-desc-${i}" rows="2" placeholder="Masukkan soal..." class="setup-input w-full px-4 py-2 rounded-lg text-slate-600 text-sm resize-none">Jelaskan cara kerja fungsi ini.</textarea>
+                        <textarea id="q-desc-${i}" rows="2" placeholder="Masukkan soal..." class="setup-input w-full px-4 py-2 rounded-lg text-slate-600 text-sm resize-none bg-white">Jelaskan cara kerja fungsi ini.</textarea>
                     </div>
                 `;
             }
@@ -354,9 +905,9 @@
                     const title = document.getElementById(`q-title-${i}`).value;
                     const desc = document.getElementById(`q-desc-${i}`).value.replace(/\n/g, '<br>');
                     html += `
-                        <div class="bg-white p-8 rounded-3xl shadow-xl shadow-sky-100/50 border-2 border-slate-100 flex flex-col content-card">
+                        <div class="bg-white/90 backdrop-blur-md p-8 rounded-3xl shadow-xl shadow-sky-100/50 border-2 border-white flex flex-col content-card">
                             <div class="flex items-center gap-4 mb-4">
-                                <div class="w-12 h-12 rounded-full bg-sky-500 text-white font-bold text-xl flex items-center justify-center shrink-0 font-display">${i}</div>
+                                <div class="w-12 h-12 rounded-full bg-sky-500 text-white font-bold text-xl flex items-center justify-center shrink-0 font-display shadow-md shadow-sky-500/20">${i}</div>
                                 <h3 class="font-bold text-xl text-slate-800 uppercase font-display leading-tight">${title}</h3>
                             </div>
                             <p class="text-slate-600 font-medium text-lg leading-snug">${desc}</p>
@@ -386,6 +937,10 @@
                     </div>
                 `;
             }
+
+            // Shift Motion Graphics Background to Presentation Mode
+            MotionBG.setMood('presentation');
+            MotionBG.triggerShockwave(window.innerWidth / 2, window.innerHeight / 2, '#0EA5E9');
 
             // Transition Layer
             gsap.to("#setup-layer", {
@@ -444,6 +999,10 @@
                 if (instr) {
                     gsap.to(instr, { opacity: 0, scale: 0.8, duration: 0.4, onComplete: () => instr.style.display = "none" });
                 }
+
+                // Shift Motion Graphics to active running speed + shockwave at click point
+                MotionBG.setMood('running');
+                MotionBG.triggerShockwave(e.clientX, e.clientY, '#06B6D4');
 
                 playStartNotification();
                 startCountdown();
@@ -517,21 +1076,23 @@
                 totalSeconds--;
                 updateTimerText();
 
-                // KODE BARU: Memutar 5.mp3 saat sisa waktu 5 menit (300 detik)
+                // Memutar 5.mp3 saat sisa waktu 5 menit (300 detik)
                 if (totalSeconds === 300) {
                     const audio5m = document.getElementById('audio-5m');
                     if (audio5m) { 
                         audio5m.currentTime = 0; 
                         audio5m.play().catch(()=>{}); 
                     }
+                    MotionBG.triggerShockwave(window.innerWidth / 2, window.innerHeight / 2, '#6366F1');
                 }
-                // KODE BARU: Memutar 1m.mp3 saat sisa waktu 1 menit (60 detik)
+                // Memutar 1minute.mp3 saat sisa waktu 1 menit (60 detik)
                 if (totalSeconds === 60) {
                     const audio1m = document.getElementById('audio-1m');
                     if (audio1m) { 
                         audio1m.currentTime = 0; 
                         audio1m.play().catch(()=>{}); 
                     }
+                    MotionBG.triggerShockwave(window.innerWidth / 2, window.innerHeight / 2, '#F59E0B');
                 }
 
                 if (totalSeconds === 10 && !isUrgent) {
@@ -556,7 +1117,11 @@
         function trigger10sUrgency() {
             isUrgent = true;
             
-            // Audio 10.mp4 (or 10.mp3)
+            // Shift Motion Graphics to Urgent High-Speed Red Mode
+            MotionBG.setMood('urgent');
+            MotionBG.triggerShockwave(window.innerWidth / 2, window.innerHeight / 2, '#EF4444');
+
+            // Audio 10.mp3
             const audio10 = document.getElementById('audio-10s');
             if (audio10) { audio10.currentTime = 0; audio10.play().catch(()=>{}); }
 
@@ -569,8 +1134,8 @@
             const overlay = document.getElementById('red-pulse-overlay');
             overlay.classList.remove('hidden');
             gsap.fromTo(overlay, 
-                { opacity: 0.2 }, 
-                { opacity: 0.7, duration: 1, ease: "sine.inOut", yoyo: true, repeat: -1 }
+                { opacity: 0.15 }, 
+                { opacity: 0.55, duration: 0.8, ease: "sine.inOut", yoyo: true, repeat: -1 }
             );
         }
 
@@ -580,6 +1145,10 @@
         function triggerTimeUp() {
             clearInterval(timerInterval);
             
+            // Shift Motion Graphics to Timeout Finale
+            MotionBG.setMood('timeout');
+            MotionBG.triggerShockwave(window.innerWidth / 2, window.innerHeight / 2, '#EC4899');
+
             // Stop Red Pulse & Hide Timer
             gsap.killTweensOf('#red-pulse-overlay');
             document.getElementById('red-pulse-overlay').classList.add('hidden');
@@ -657,6 +1226,10 @@
             hasTimerStarted = false;
             isUrgent = false;
 
+            // Return Motion Graphics Background to Calm Setup Mood
+            MotionBG.setMood('setup');
+            MotionBG.triggerShockwave(window.innerWidth / 2, window.innerHeight / 2, '#38BDF8');
+
             // Kill specific card floating tweens
             contentFloaters.forEach(f => f.kill());
             contentFloaters = [];
@@ -665,7 +1238,7 @@
             const resetBtn = document.getElementById('reset-container');
             const presLayer = document.getElementById('presentation-layer');
             const instr = document.getElementById('instruction-text');
-            const startLayer = document.getElementById('start-layer'); // Reset start overlay
+            const startLayer = document.getElementById('start-layer');
             
             resetBtn.classList.add('hidden');
             presLayer.classList.add('hidden');
