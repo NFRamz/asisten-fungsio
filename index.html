@@ -167,6 +167,31 @@
             border-color: #38BDF8;
             box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
         }
+
+        /* Fullscreen Web & Share Screen Container */
+        #web-overlay-container,
+        #external-web-frame,
+        #external-web-video {
+            width: 100vw !important;
+            height: 100vh !important;
+            max-width: 100vw !important;
+            max-height: 100vh !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: 0 !important;
+        }
+
+        /* Blur State when Time is Up */
+        .timeout-content-blur {
+            filter: blur(18px) !important;
+            -webkit-filter: blur(18px) !important;
+            pointer-events: none !important;
+            user-select: none !important;
+            transition: filter 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .timeout-content-transition {
+            transition: filter 0.45s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.5s ease;
+        }
     </style>
 </head>
 <body class="antialiased text-slate-800 min-h-screen relative">
@@ -272,6 +297,48 @@
         <div class="mg-grain"></div>
     </div>
 
+    <!-- ================= FULL-SCREEN EXTERNAL WEB OVERLAY (FOR BUKA WEB VIA LINK) ================= -->
+    <div id="web-overlay-container" class="hidden fixed inset-0 w-screen h-screen z-10 bg-slate-950 overflow-hidden timeout-content-transition">
+        <!-- Standard Fullscreen Iframe -->
+        <iframe id="external-web-frame" class="w-screen h-screen border-0 block" allow="clipboard-read; clipboard-write; fullscreen; accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; display-capture"></iframe>
+        
+        <!-- Live Tab Mirror Video (Default object-fill so it stretches 100% edge-to-edge without black bars) -->
+        <video id="external-web-video" autoplay playsinline muted class="hidden w-screen h-screen block bg-slate-950" style="object-fit: fill;"></video>
+
+        <!-- Transparent Click Shield before Timer Starts (so clicking anywhere over the web starts the timer) -->
+        <div id="web-click-shield" class="fixed inset-0 z-30 cursor-pointer" onclick="handleScreenClick(event)"></div>
+
+        <!-- Floating Helper Bar for Google Colab / Anti-Iframe Websites -->
+        <div id="colab-helper-bar" class="fixed bottom-4 left-4 z-[125] flex flex-wrap items-center gap-2 bg-slate-900/90 backdrop-blur-md text-white px-4 py-2.5 rounded-2xl shadow-2xl border border-slate-700/80 text-xs md:text-sm transition-all duration-300">
+            <span class="text-slate-300 font-medium hidden lg:inline">Kontrol Web / Colab:</span>
+            <button type="button" onclick="startLiveTabMirror(event)" class="bg-sky-500 hover:bg-sky-400 text-white font-bold px-3.5 py-1.5 rounded-xl transition flex items-center gap-1.5 shadow-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                Buka &amp; Mirror Tab (Colab)
+            </button>
+            <button type="button" id="btn-video-fit" onclick="cycleVideoFitMode(event)" class="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-3 py-1.5 rounded-xl transition">
+                Rasio: Penuh (Fill)
+            </button>
+            <button type="button" onclick="toggleNativeFullscreen(event)" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-3 py-1.5 rounded-xl transition flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
+                Layar Penuh
+            </button>
+            <button type="button" onclick="openExternalPopup(event)" class="bg-slate-700 hover:bg-slate-600 text-slate-100 font-semibold px-3 py-1.5 rounded-xl transition">
+                Tab Baru ↗
+            </button>
+            <button type="button" onclick="hideColabHelper(event)" title="Sembunyikan panel ini" class="text-slate-400 hover:text-white px-2 py-1 rounded-lg transition font-bold">
+                ✕
+            </button>
+        </div>
+
+        <!-- Mini Restore Button when Helper Bar is hidden -->
+        <button type="button" id="colab-helper-restore" onclick="showColabHelper(event)" class="hidden fixed bottom-4 left-4 z-[125] bg-slate-900/75 hover:bg-slate-900 text-white text-xs font-bold px-3 py-2 rounded-xl shadow-lg border border-slate-700/70 backdrop-blur-md transition">
+            (X) Settings
+        </button>
+    </div>
+
+    <!-- ================= TIMEOUT BLUR SHIELD (BLURS EXERCISE, DEMO & WEB OVERLAY) ================= -->
+    <div id="timeout-blur-shield" class="hidden fixed inset-0 z-[95] backdrop-blur-xl bg-slate-900/15 transition-all duration-500"></div>
+
     <!-- ================= START NOTIFICATION OVERLAY ================= -->
     <div id="start-layer" class="hidden fixed inset-0 z-[130] pointer-events-none flex-col justify-center items-center">
         <div id="start-particle-burst" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
@@ -344,6 +411,16 @@
                     <label class="block font-bold text-slate-700 mb-2">Link Tujuan</label>
                     <input type="text" id="demo-link" value="bit.ly/fungsio-d6" class="setup-input w-full px-4 py-3 rounded-xl font-bold text-sky-600 font-mono bg-white/90">
                 </div>
+                <div class="pt-2 border-t border-slate-200/80">
+                    <label class="block font-bold text-slate-700 mb-1">
+                        Buka Web via Link (Opsional - Mode Web Penuh / Google Colab)
+                        <span class="ml-2 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-pink-100 text-pink-600">Mode Layar Penuh + Timer</span>
+                    </label>
+                    <p class="text-xs text-slate-500 mb-2">
+                        Jika diisi (misal link Google Colab / web lain), saat presentasi dimulai semua elemen latar &amp; kartu akan disingkirkan dan menyisakan <strong>Timer</strong>, <strong>Teks Mulai</strong>, serta <strong>Animasi Waktu Habis</strong> tepat di atas web tersebut.
+                    </p>
+                    <input type="text" id="demo-web-link" placeholder="https://colab.research.google.com/... (Kosongkan jika ingin tampilan buku catatan biasa)" class="setup-input w-full px-4 py-3 rounded-xl font-bold text-pink-600 font-mono bg-white/90">
+                </div>
             </div>
 
             <!-- Exercise Fields -->
@@ -380,13 +457,13 @@
 
 
         <!-- Header Content -->
-        <div id="pres-header-area" class="text-center mt-24 md:mt-12 mb-12 w-full max-w-5xl pres-element pointer-events-none transition-opacity duration-500">
+        <div id="pres-header-area" class="text-center mt-24 md:mt-12 mb-12 w-full max-w-5xl pres-element pointer-events-none timeout-content-transition">
             <h1 id="pres-maintitle" class="text-5xl md:text-6xl font-extrabold text-slate-800 font-display mb-2 uppercase tracking-tight drop-shadow-xs">TITLE</h1>
             <h2 id="pres-subtitle" class="text-2xl md:text-3xl font-bold text-sky-600 font-display">Subtitle</h2>
         </div>
 
         <!-- Dynamic Content Container -->
-        <div id="pres-content" class="w-full max-w-7xl relative z-30 transition-opacity duration-500">
+        <div id="pres-content" class="w-full max-w-7xl relative z-30 timeout-content-transition">
             <!-- Filled dynamically -->
         </div>
     </div>
@@ -401,9 +478,16 @@
     </div>
 
 
-    <!-- ================= 4. RESET BUTTON OVERLAY ================= -->
-    <div id="reset-container" class="hidden fixed bottom-10 left-1/2 -translate-x-1/2 z-[120]">
-        <button onclick="resetApp()" class="bg-slate-800 hover:bg-pink-500 text-white px-10 py-4 rounded-full font-bold text-xl shadow-2xl flex items-center gap-2 transition-colors duration-300">
+    <!-- ================= 4. RESET & UNBLUR BUTTON OVERLAY ================= -->
+    <div id="reset-container" class="hidden fixed bottom-10 left-1/2 -translate-x-1/2 z-[120] flex items-center gap-4">
+        <button id="unblur-btn" onclick="toggleBlur()" class="bg-sky-500 hover:bg-sky-600 text-white px-8 py-4 rounded-full font-bold text-xl shadow-2xl flex items-center gap-2.5 transition-colors duration-300 cursor-pointer">
+            <svg id="unblur-icon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+            </svg>
+            <span id="unblur-btn-text">Unblur</span>
+        </button>
+        <button onclick="resetApp()" class="bg-slate-800 hover:bg-pink-500 text-white px-10 py-4 rounded-full font-bold text-xl shadow-2xl flex items-center gap-2 transition-colors duration-300 cursor-pointer">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
             Reset
         </button>
@@ -419,6 +503,11 @@
         let isPresActive = false;
         let hasTimerStarted = false;
         let isUrgent = false;
+        let isWebOverlayMode = false;
+        let activeWebUrl = '';
+        let activeMirrorStream = null;
+        let isTimeoutBlurred = false;
+        let videoFitMode = 'fill'; // 'fill' | 'cover' | 'contain'
         
         // Storage for GSAP Tweens so they can be killed
         let contentFloaters = []; 
@@ -875,6 +964,192 @@
         }
 
         // ============================================
+        // HELPER: NORMALIZE URL & ACTIVATE WEB OVERLAY MODE
+        // ============================================
+        function normalizeUrl(rawUrl) {
+            const trimmed = (rawUrl || '').trim();
+            if (!trimmed) return '';
+            if (/^https?:\/\//i.test(trimmed)) return trimmed;
+            return 'https://' + trimmed;
+        }
+
+        function activateWebOverlayMode(rawUrl, e) {
+            if (e) e.stopPropagation();
+            const finalUrl = normalizeUrl(rawUrl);
+            if (!finalUrl) return;
+
+            isWebOverlayMode = true;
+            activeWebUrl = finalUrl;
+
+            // Kill floating card animations
+            contentFloaters.forEach(f => f.kill());
+            contentFloaters = [];
+
+            // Immediately remove/hide background motion stage, header, and notebook/card content
+            document.getElementById('mg-stage').classList.add('hidden');
+            document.getElementById('pres-header-area').classList.add('hidden');
+            document.getElementById('pres-content').classList.add('hidden');
+
+            // Make presentation-layer pass-through so user can interact with web once timer starts
+            const presLayer = document.getElementById('presentation-layer');
+            presLayer.classList.add('pointer-events-none');
+
+            // Configure and show full-screen Web Overlay Container
+            const webOverlay = document.getElementById('web-overlay-container');
+            const webFrame = document.getElementById('external-web-frame');
+            const webVideo = document.getElementById('external-web-video');
+            const clickShield = document.getElementById('web-click-shield');
+            const helperBar = document.getElementById('colab-helper-bar');
+            const helperRestore = document.getElementById('colab-helper-restore');
+
+            webVideo.classList.add('hidden');
+            webFrame.classList.remove('hidden');
+            webFrame.src = finalUrl;
+
+            // If timer hasn't started yet, keep transparent click shield active so clicking anywhere starts the timer
+            if (!hasTimerStarted) {
+                clickShield.classList.remove('hidden');
+            } else {
+                clickShield.classList.add('hidden');
+            }
+
+            helperBar.classList.remove('hidden');
+            if (helperRestore) helperRestore.classList.add('hidden');
+            webOverlay.classList.remove('hidden');
+        }
+
+        async function startLiveTabMirror(e) {
+            if (e) e.stopPropagation();
+            if (activeWebUrl) {
+                window.open(activeWebUrl, '_blank', 'noopener,noreferrer');
+            }
+            try {
+                if (activeMirrorStream) {
+                    activeMirrorStream.getTracks().forEach(track => track.stop());
+                }
+                const stream = await navigator.mediaDevices.getDisplayMedia({
+                    video: {
+                        displaySurface: 'browser',
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 },
+                        frameRate: { ideal: 60 }
+                    },
+                    audio: false
+                });
+                activeMirrorStream = stream;
+
+                const webFrame = document.getElementById('external-web-frame');
+                const webVideo = document.getElementById('external-web-video');
+                webFrame.classList.add('hidden');
+                webVideo.classList.remove('hidden');
+                webVideo.style.objectFit = videoFitMode;
+                webVideo.srcObject = stream;
+
+                // Automatically collapse helper bar into small corner button so full screen is clean
+                document.getElementById('colab-helper-bar').classList.add('hidden');
+                const helperRestore = document.getElementById('colab-helper-restore');
+                if (helperRestore) helperRestore.classList.remove('hidden');
+
+                stream.getVideoTracks()[0].addEventListener('ended', () => {
+                    webVideo.classList.add('hidden');
+                    webFrame.classList.remove('hidden');
+                    document.getElementById('colab-helper-bar').classList.remove('hidden');
+                    if (helperRestore) helperRestore.classList.add('hidden');
+                });
+            } catch (err) {
+                // User cancelled screen picker; keep iframe visible
+            }
+        }
+
+        function cycleVideoFitMode(e) {
+            if (e) e.stopPropagation();
+            const webVideo = document.getElementById('external-web-video');
+            const btn = document.getElementById('btn-video-fit');
+            if (videoFitMode === 'fill') {
+                videoFitMode = 'cover';
+                if (btn) btn.innerText = 'Rasio: Potong (Cover)';
+            } else if (videoFitMode === 'cover') {
+                videoFitMode = 'contain';
+                if (btn) btn.innerText = 'Rasio: Proporsional (Contain)';
+            } else {
+                videoFitMode = 'fill';
+                if (btn) btn.innerText = 'Rasio: Penuh (Fill)';
+            }
+            if (webVideo) {
+                webVideo.style.objectFit = videoFitMode;
+            }
+        }
+
+        function toggleNativeFullscreen(e) {
+            if (e) e.stopPropagation();
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+            } else {
+                document.exitFullscreen().catch(() => {});
+            }
+        }
+
+        function openExternalPopup(e) {
+            if (e) e.stopPropagation();
+            if (activeWebUrl) {
+                window.open(activeWebUrl, '_blank', 'noopener,noreferrer');
+            }
+        }
+
+        function hideColabHelper(e) {
+            if (e) e.stopPropagation();
+            document.getElementById('colab-helper-bar').classList.add('hidden');
+            const helperRestore = document.getElementById('colab-helper-restore');
+            if (helperRestore) helperRestore.classList.remove('hidden');
+        }
+
+        function showColabHelper(e) {
+            if (e) e.stopPropagation();
+            document.getElementById('colab-helper-bar').classList.remove('hidden');
+            const helperRestore = document.getElementById('colab-helper-restore');
+            if (helperRestore) helperRestore.classList.add('hidden');
+        }
+
+        // ============================================
+        // BLUR / UNBLUR TIMEOUT HANDLER
+        // ============================================
+        function applyTimeoutBlur(shouldBlur) {
+            isTimeoutBlurred = shouldBlur;
+            const presHeader = document.getElementById('pres-header-area');
+            const presContent = document.getElementById('pres-content');
+            const webOverlay = document.getElementById('web-overlay-container');
+            const blurShield = document.getElementById('timeout-blur-shield');
+            const unblurBtnText = document.getElementById('unblur-btn-text');
+            const unblurBtn = document.getElementById('unblur-btn');
+
+            if (shouldBlur) {
+                if (presHeader) presHeader.classList.add('timeout-content-blur');
+                if (presContent) presContent.classList.add('timeout-content-blur');
+                if (webOverlay) webOverlay.classList.add('timeout-content-blur');
+                if (blurShield) blurShield.classList.remove('hidden');
+                if (unblurBtnText) unblurBtnText.innerText = 'Unblur';
+                if (unblurBtn) {
+                    unblurBtn.classList.remove('bg-amber-500', 'hover:bg-amber-600');
+                    unblurBtn.classList.add('bg-sky-500', 'hover:bg-sky-600');
+                }
+            } else {
+                if (presHeader) presHeader.classList.remove('timeout-content-blur');
+                if (presContent) presContent.classList.remove('timeout-content-blur');
+                if (webOverlay) webOverlay.classList.remove('timeout-content-blur');
+                if (blurShield) blurShield.classList.add('hidden');
+                if (unblurBtnText) unblurBtnText.innerText = 'Blur Kembali';
+                if (unblurBtn) {
+                    unblurBtn.classList.remove('bg-sky-500', 'hover:bg-sky-600');
+                    unblurBtn.classList.add('bg-amber-500', 'hover:bg-amber-600');
+                }
+            }
+        }
+
+        function toggleBlur() {
+            applyTimeoutBlur(!isTimeoutBlurred);
+        }
+
+        // ============================================
         // START PRESENTATION
         // ============================================
         function startPresentation() {
@@ -897,6 +1172,10 @@
             const mode = document.querySelector('input[name="mode"]:checked').value;
             const contentArea = document.getElementById('pres-content');
             contentArea.innerHTML = '';
+
+            // Check if Demo mode has "Buka Web via Link" filled
+            const rawWebLink = document.getElementById('demo-web-link') ? document.getElementById('demo-web-link').value.trim() : '';
+            const shouldOpenWebOverlayDirectly = (mode === 'demo' && rawWebLink !== '');
 
             if (mode === 'exercise') {
                 const count = parseInt(document.getElementById('in-count').value);
@@ -928,9 +1207,14 @@
                     <div class="spiral-notebook w-full max-w-3xl mx-auto p-12 pt-20 pb-16 text-center content-card cursor-auto">
                         <div class="spiral-holes-container">${spirals}</div>
                         <h3 class="text-2xl font-bold text-slate-500 mb-6 font-display">Link Demo:</h3>
-                        <a href="https://${link.replace('https://','')}" target="_blank" onclick="event.stopPropagation();" class="inline-block text-4xl md:text-5xl lg:text-6xl font-black text-sky-600 hover:text-pink-500 transition-colors tracking-tight font-mono mb-8 underline decoration-wavy decoration-sky-300 relative z-50">
+                        <a href="https://${link.replace('https://','')}" target="_blank" onclick="event.stopPropagation();" class="inline-block text-4xl md:text-5xl lg:text-6xl font-black text-sky-600 hover:text-pink-500 transition-colors tracking-tight font-mono mb-6 underline decoration-wavy decoration-sky-300 relative z-50">
                             ${link}
                         </a>
+                        <div class="mb-6">
+                            <button type="button" onclick="activateWebOverlayMode('${link.replace(/'/g, "\\'")}', event)" class="bg-pink-500 hover:bg-pink-600 text-white font-bold px-5 py-2 rounded-full text-sm shadow-md transition inline-flex items-center gap-2 relative z-50">
+                                <span>Buka Web Ini di Layar Penuh + Timer</span>
+                            </button>
+                        </div>
                         <div class="bg-slate-100 text-slate-700 px-6 py-3 rounded-full font-bold text-lg inline-block border border-slate-200 shadow-sm">
                             ${msg}
                         </div>
@@ -957,6 +1241,12 @@
                     
                     isPresActive = true;
                     window.scrollTo(0, 0);
+
+                    if (shouldOpenWebOverlayDirectly) {
+                        // Immediately strip away background, headers, and cards and launch the external web overlay
+                        activateWebOverlayMode(rawWebLink);
+                        return;
+                    }
 
                     // Animate In Header Elements
                     gsap.fromTo(".pres-element", { y: -30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, stagger: 0.1, ease: "back.out" });
@@ -989,7 +1279,7 @@
         // ============================================
         function handleScreenClick(e) {
             // Ignore links
-            if (e.target.closest('a')) return;
+            if (e.target && e.target.closest && e.target.closest('a')) return;
 
             if (isPresActive && !hasTimerStarted) {
                 hasTimerStarted = true;
@@ -1000,9 +1290,17 @@
                     gsap.to(instr, { opacity: 0, scale: 0.8, duration: 0.4, onComplete: () => instr.style.display = "none" });
                 }
 
+                // Disable Web Click Shield so user can freely interact with the embedded web / Google Colab
+                const clickShield = document.getElementById('web-click-shield');
+                if (clickShield) {
+                    clickShield.classList.add('hidden');
+                }
+
                 // Shift Motion Graphics to active running speed + shockwave at click point
                 MotionBG.setMood('running');
-                MotionBG.triggerShockwave(e.clientX, e.clientY, '#06B6D4');
+                if (e && e.clientX) {
+                    MotionBG.triggerShockwave(e.clientX, e.clientY, '#06B6D4');
+                }
 
                 playStartNotification();
                 startCountdown();
@@ -1158,11 +1456,8 @@
             const audioEnd = document.getElementById('audio-end');
             if (audioEnd) { audioEnd.currentTime = 0; audioEnd.play().catch(()=>{}); }
 
-            // Temporarily hide presentation content
-            const presContent = document.getElementById('pres-content');
-            const presHeader = document.getElementById('pres-header-area');
-            presContent.style.opacity = '0';
-            presHeader.style.opacity = '0';
+            // Apply Blur Effect to all modes (Exercise, Demo, and Web Overlay)
+            applyTimeoutBlur(true);
 
             // Show Timeout Anim Layer
             const timeoutLayer = document.getElementById('timeout-layer');
@@ -1187,11 +1482,8 @@
                     // Timeout sequence finished.
                     timeoutLayer.classList.add('hidden');
                     timeoutLayer.classList.remove('flex');
-                    
-                    // Show Content Again smoothly
-                    gsap.to([presContent, presHeader], { opacity: 1, duration: 1 });
 
-                    // Show Reset Button
+                    // Show Unblur & Reset Buttons (Content stays blurred underneath until user clicks Unblur)
                     const resetContainer = document.getElementById('reset-container');
                     resetContainer.classList.remove('hidden');
                     gsap.fromTo(resetContainer, {y: 100, opacity: 0}, {y: 0, opacity: 1, duration: 0.8, ease: "back.out"});
@@ -1221,10 +1513,40 @@
             clearInterval(timerInterval);
             document.querySelectorAll('audio').forEach(a => { a.pause(); a.currentTime = 0; });
             
+            // Clear Timeout Blur
+            applyTimeoutBlur(false);
+
             // Reset Flags
             isPresActive = false;
             hasTimerStarted = false;
             isUrgent = false;
+            isWebOverlayMode = false;
+            activeWebUrl = '';
+
+            // Stop any active live tab mirror stream & reset Web Overlay container
+            if (activeMirrorStream) {
+                activeMirrorStream.getTracks().forEach(track => track.stop());
+                activeMirrorStream = null;
+            }
+            const webOverlay = document.getElementById('web-overlay-container');
+            const webFrame = document.getElementById('external-web-frame');
+            const webVideo = document.getElementById('external-web-video');
+            if (webOverlay) webOverlay.classList.add('hidden');
+            if (webFrame) {
+                webFrame.src = 'about:blank';
+                webFrame.classList.remove('hidden');
+            }
+            if (webVideo) {
+                webVideo.srcObject = null;
+                webVideo.classList.add('hidden');
+            }
+
+            // Restore Motion Graphics Stage & Presentation Header/Content visibility
+            document.getElementById('mg-stage').classList.remove('hidden');
+            const presContent = document.getElementById('pres-content');
+            const presHeader = document.getElementById('pres-header-area');
+            presContent.classList.remove('hidden');
+            presHeader.classList.remove('hidden');
 
             // Return Motion Graphics Background to Calm Setup Mood
             MotionBG.setMood('setup');
@@ -1242,7 +1564,7 @@
             
             resetBtn.classList.add('hidden');
             presLayer.classList.add('hidden');
-            presLayer.classList.remove('flex');
+            presLayer.classList.remove('flex', 'pointer-events-none');
             
             if(startLayer) {
                 startLayer.classList.add('hidden');
@@ -1250,8 +1572,8 @@
             }
             
             // Ensure headers & content are fully visible for next time
-            document.getElementById('pres-content').style.opacity = '1';
-            document.getElementById('pres-header-area').style.opacity = '1';
+            presContent.style.opacity = '1';
+            presHeader.style.opacity = '1';
             
             // Restore instruction text
             instr.style.display = "flex";
