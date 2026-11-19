@@ -1,6 +1,6 @@
 # Dokumentasi Perubahan Proyek
 
-Dokumen ini mencatat perubahan yang dilakukan untuk menyelesaikan tugas (TODO) pada proyek CODELAB-4-WEB.
+Dokumen ini mencatat perubahan yang dilakukan untuk menyelesaikan tugas (TODO) 
 
 ## 1. Migrasi Database
 **File:** `database/migrations/2026_08_10_043505_create_members_table.php`
